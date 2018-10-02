@@ -7,7 +7,7 @@ component {
 	// csv is the CSV text data (if the file argument was not used).
 	// delimiter is the field delimiter (line delimiter is assumed to be new line / carriage return).
 	// trim is whether or not to trim the END of the file for line breaks and carriage returns.
-	public array function csvToArray(string file = "", string csv = "", string delimiter = ",", boolean trim = true) {
+	public array function csvToArray(string file = "", string csv = "", string delimiter = ",", boolean trim = true, boolean includeFirstRow = true) {
 		var regEx = "";
 
 		// Check to see if we are using a CSV File. If so, then all we
@@ -165,6 +165,10 @@ component {
 				// empty space.
 				break;
 			}
+		}
+
+		if (!includeFirstRow) {
+			arrayDeleteAt(csvData, 1);
 		}
 
 		// At this point, our array should contain the parsed contents
