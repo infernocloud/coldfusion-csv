@@ -1,7 +1,10 @@
 
 // https://github.com/infernocloud/coldfusion-csv
-// csvToArray() is forked from https://gist.github.com/bennadel/9760097#file-code-1-cfm and converted to full cfscript.
 component {
+	// Get a newline seperator character
+	variables.newline = createObject("java", "java.lang.System").getProperty("line.separator");
+
+	// csvToArray() is forked from https://gist.github.com/bennadel/9760097#file-code-1-cfm and converted to full cfscript.
 	// I take a CSV file or CSV data value and convert it to an array of arrays based on the given field delimiter. Line delimiter is assumed to be new line / carriage return related.
 	// file is the optional file containing the CSV data.
 	// csv is the CSV text data (if the file argument was not used).
@@ -174,5 +177,64 @@ component {
 		// At this point, our array should contain the parsed contents
 		// of the CSV value as an array of arrays. Return the array.
 		return csvData;
+	}
+
+	// arrayToCSV takes an array of arrays where each outer array item is an array representing a row of data that should be printed in a CSV document
+	// Using java.lang.StringBuffer over Coldfusion's array concatenation is about 10 times faster
+	// Using Java Iterators is about 10% faster than accessing the arrays using Coldfusion's for loops
+	public string function arrayToCSV(required array arr, array header = []) {
+		var csvText = createObject("java", "java.lang.StringBuffer");
+
+		// Build header if needed
+		if (header.len() > 0) {
+			var headerIter = header.Iterator();
+
+			while (headerIter.hasNext()) {
+				var heading = headerIter.next();
+
+				// Each heading is qualified inside of double quotes
+				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(heading) & """"));
+
+				// Comma separated values in the header row
+				if (headerIter.hasNext()) {
+					csvText.append(",");
+				}
+			}
+
+			// Newline after header
+			csvText.append(newline);
+		}
+
+		// Each row
+		var arrIter = arr.Iterator();
+
+		while (arrIter.hasNext()) {
+			// Get the row array
+			var row = arrIter.next();
+			var rowIter = row.Iterator();
+
+			while (rowIter.hasNext()) {
+				var item = rowIter.next();
+
+				// Each row item is qualified inside of double quotes
+				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(item) & """"));
+
+				// Comma separated values in each data row
+				if (rowIter.hasNext()) {
+					csvText.append(",");
+				}
+			}
+
+			// Newline after each row
+			csvText.append(newline);
+		}
+
+		return csvText.toString();
+	}
+
+	// escapeDoubleQuotes will find any existing double quotes (") and will escape them for
+	// @TODO should this check for already escaped quotes and leave them alone?
+	private string function escapeDoubleQuotes(required string input) {
+		return replace(input, """", """""", "all");
 	}
 }
