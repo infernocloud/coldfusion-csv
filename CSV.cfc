@@ -232,9 +232,85 @@ component {
 		return csvText.toString();
 	}
 
+	// @TODO to clean up
+	// Based on Ben Nadel's updated function but with tons of optimizations https://gist.github.com/bennadel/9753130#file-code-1-cfm
+	public string function queryToCSV(required query q, array header = []) {
+		var newline = createobject("java", "java.lang.System").getProperty("line.separator");
+		var csvText = createObject("java","java.lang.StringBuffer");
+
+		cftimer(label = "#q.recordcount#: queryToCSVNadelScript", type = "debug") {
+
+		// Build header
+		var records = q.recordcount;
+		var queryColumns = q.getColumnNames();
+		var queryColumnsLen = arrayLen(queryColumns);
+		var rowData = [];
+		var colIndex = 1;
+		var rowIndex = 1;
+
+		// writedump(getMetadata(queryColumns)); abort;
+
+		// Build array of qualified column names
+		for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
+			// rowData[colIndex] = """#escapeDoubleQuotes(queryColumns[colIndex])#""";
+
+			rowData[colIndex] = "{quot}#queryColumns[colIndex]#{quot}";
+
+			// @TODO removing escapeDoubleQuotes() halves execution time :(
+			// rowData[colIndex] = """#replace(queryColumns[colIndex], """", """""", "all")#""";
+		}
+
+		// Append row data to the string buffer
+		csvText.append(JavaCast("string", arrayToList(rowData) & newline));
+		// csvText.append(JavaCast("string", outputCSVRow(rowData) & newline));
+
+		// Append each row of the query data
+		for (rowIndex = 1; rowIndex <= records; rowIndex++) {
+			rowData = [];
+
+			for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
+				// Add the field to the row data
+				// rowData[colIndex] = """#escapeDoubleQuotes(q[queryColumns[colIndex]][rowIndex])#""";
+
+				rowData[colIndex] = "{quot}#q[queryColumns[colIndex]][rowIndex]#{quot}";
+
+				// @TODO removing escapeDoubleQuotes() halves execution time :(
+				// rowData[colIndex] = """#replace(q[queryColumns[colIndex]][rowIndex], """", """""", "all")#""";
+			}
+
+			// Append the row data to the string buffer
+			csvText.append(JavaCast("string", arrayToList(rowData) & newline));
+			// csvText.append(JavaCast("string", outputCSVRow(rowData) & newline));
+		}
+
+		// Waiting until the very end to escape quotes and add qualifier quotes speeds this up by more than double
+		var escapedCSV = escapeCSV(csvText.toString());
+		}
+
+		return escapedCSV;
+	}
+
 	// escapeDoubleQuotes will find any existing double quotes (") and will escape them for
 	// @TODO should this check for already escaped quotes and leave them alone?
 	private string function escapeDoubleQuotes(required string input) {
 		return replace(input, """", """""", "all");
+	}
+
+	private string function outputCSVRow(required array row) {
+		var rowString = row.toList();
+
+		// Escape double quotes
+		rowString = replace(rowString, """", """""", "all");
+
+		// Add actual qualifier double quotes around row items
+		return replace(rowString, "{quot}", """", "all");
+	}
+
+	private string function escapeCSV(required string csv) {
+		// Escape double quotes
+		csv = replace(csv, """", """""", "all");
+
+		// Add actual qualifier double quotes around row items
+		return replace(csv, "{quot}", """", "all");
 	}
 }
