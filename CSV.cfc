@@ -186,27 +186,18 @@ component {
 	// arrayToCSV takes an array of arrays where each outer array item is an array representing a row of data that should be printed in a CSV document
 	// Using java.lang.StringBuffer over Coldfusion's array concatenation is about 10 times faster
 	// Using Java Iterators is about 10% faster than accessing the arrays using Coldfusion's for loops
+
+	// Note about switching from a loop for each row item to using toList():
+	// Removing this inner loop significantly speeds up CSV creation
+	// Previous version with item loops did 100k rows with 20 columns in 40 seconds
+	// Version with hacky toList does the same 100k rows with 20 columns in 3.788 seconds
 	public string function arrayToCSV(required array arr, array header = []) {
 		var csvText = createObject("java", "java.lang.StringBuffer");
 
 		// Build header if needed
 		if (header.len() > 0) {
-			var headerIter = header.Iterator();
-
-			while (headerIter.hasNext()) {
-				var heading = headerIter.next();
-
-				// Each heading is qualified inside of double quotes
-				csvText.append(JavaCast("string", variables.tempQualifier & heading & variables.tempQualifier));
-
-				// Comma separated values in the header row
-				if (headerIter.hasNext()) {
-					csvText.append(",");
-				}
-			}
-
-			// Newline after header
-			csvText.append(newline);
+			// Instead of looping over each header label to add qualifiers, just convert to string with the qualifiers and comma as the separator
+			csvText.append(JavaCast("string", variables.tempQualifier & header.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline));
 		}
 
 		// Each row
@@ -215,22 +206,9 @@ component {
 		while (arrIter.hasNext()) {
 			// Get the row array
 			var row = arrIter.next();
-			var rowIter = row.Iterator();
 
-			while (rowIter.hasNext()) {
-				var item = rowIter.next();
-
-				// Each row item is qualified inside of double quotes
-				csvText.append(JavaCast("string", variables.tempQualifier & item & variables.tempQualifier));
-
-				// Comma separated values in each data row
-				if (rowIter.hasNext()) {
-					csvText.append(",");
-				}
-			}
-
-			// Newline after each row
-			csvText.append(newline);
+			// Instead of looping over each header label to add qualifiers, just convert to string with the qualifiers and comma as the separator
+			csvText.append(JavaCast("string", variables.tempQualifier & row.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline));
 		}
 
 		// Waiting until the very end to escape quotes and add qualifier quotes speeds this up by more than double
@@ -289,7 +267,7 @@ component {
 
 		return escapedCSV;
 	}
-	
+
 	private string function escapeCSV(required string csv) {
 		// Escape double quotes
 		csv = replace(csv, """", """""", "all");
