@@ -195,7 +195,7 @@ component {
 		// Build header if needed
 		if (header.len() > 0) {
 			// Instead of looping over each header label to add qualifiers, just convert to string with the qualifiers and comma as the separator
-			csvText.append(JavaCast("string", variables.tempQualifier & header.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline);
+			csvText.append(JavaCast("string", variables.tempQualifier & header.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline));
 
 			// var headerIter = header.Iterator();
 			//
@@ -224,7 +224,7 @@ component {
 			// var rowIter = row.Iterator();
 
 			// Instead of looping over each header label to add qualifiers, just convert to string with the qualifiers and comma as the separator
-			csvText.append(JavaCast("string", variables.tempQualifier & row.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline);
+			csvText.append(JavaCast("string", variables.tempQualifier & row.toList("#variables.tempQualifier#,#variables.tempQualifier#") & variables.tempQualifier & newline));
 
 			// while (rowIter.hasNext()) {
 			// 	var item = rowIter.next();
