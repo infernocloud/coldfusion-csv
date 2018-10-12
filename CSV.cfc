@@ -4,6 +4,10 @@ component {
 	// Get a newline seperator character
 	variables.newline = createObject("java", "java.lang.System").getProperty("line.separator");
 
+	// We use a temporary qualifier that will be replaced by double quote after escaping double quotes within row items
+	// Doing this after adding the row items to the CSV string buffer dramatically increases processing speed
+	variables.tempQualifier = "{^}";
+
 	// csvToArray() is forked from https://gist.github.com/bennadel/9760097#file-code-1-cfm and converted to full cfscript.
 	// I take a CSV file or CSV data value and convert it to an array of arrays based on the given field delimiter. Line delimiter is assumed to be new line / carriage return related.
 	// file is the optional file containing the CSV data.
@@ -193,6 +197,7 @@ component {
 				var heading = headerIter.next();
 
 				// Each heading is qualified inside of double quotes
+				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
 				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(heading) & """"));
 
 				// Comma separated values in the header row
@@ -217,6 +222,7 @@ component {
 				var item = rowIter.next();
 
 				// Each row item is qualified inside of double quotes
+				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
 				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(item) & """"));
 
 				// Comma separated values in each data row
@@ -232,60 +238,44 @@ component {
 		return csvText.toString();
 	}
 
-	// @TODO to clean up
 	// Based on Ben Nadel's updated function but with tons of optimizations https://gist.github.com/bennadel/9753130#file-code-1-cfm
+	// @TODO custom header labels instead of query column names
 	public string function queryToCSV(required query q, array header = []) {
-		var newline = createobject("java", "java.lang.System").getProperty("line.separator");
 		var csvText = createObject("java","java.lang.StringBuffer");
-
-		cftimer(label = "#q.recordcount#: queryToCSVNadelScript", type = "debug") {
-
-		// Build header
-		var records = q.recordcount;
-		var queryColumns = q.getColumnNames();
-		var queryColumnsLen = arrayLen(queryColumns);
+		var queryRowCount = q.recordcount;
 		var rowData = [];
 		var colIndex = 1;
 		var rowIndex = 1;
 
-		// writedump(getMetadata(queryColumns)); abort;
+		// Build header
+		var queryColumns = q.getColumnNames();
+		var queryColumnsLen = arrayLen(queryColumns);
 
 		// Build array of qualified column names
 		for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
-			// rowData[colIndex] = """#escapeDoubleQuotes(queryColumns[colIndex])#""";
-
-			rowData[colIndex] = "{quot}#queryColumns[colIndex]#{quot}";
-
-			// @TODO removing escapeDoubleQuotes() halves execution time :(
-			// rowData[colIndex] = """#replace(queryColumns[colIndex], """", """""", "all")#""";
+			rowData[colIndex] = variables.tempQualifier & queryColumns[colIndex] & variables.tempQualifier;
 		}
 
-		// Append row data to the string buffer
+		// Append row data to the string buffer as a comma separated list (and a newline after the header line)
 		csvText.append(JavaCast("string", arrayToList(rowData) & newline));
-		// csvText.append(JavaCast("string", outputCSVRow(rowData) & newline));
 
 		// Append each row of the query data
-		for (rowIndex = 1; rowIndex <= records; rowIndex++) {
+		for (rowIndex = 1; rowIndex <= queryRowCount; rowIndex++) {
 			rowData = [];
 
 			for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
 				// Add the field to the row data
-				// rowData[colIndex] = """#escapeDoubleQuotes(q[queryColumns[colIndex]][rowIndex])#""";
-
-				rowData[colIndex] = "{quot}#q[queryColumns[colIndex]][rowIndex]#{quot}";
-
-				// @TODO removing escapeDoubleQuotes() halves execution time :(
-				// rowData[colIndex] = """#replace(q[queryColumns[colIndex]][rowIndex], """", """""", "all")#""";
+				rowData[colIndex] = variables.tempQualifier & q[queryColumns[colIndex]][rowIndex] & variables.tempQualifier;
 			}
 
 			// Append the row data to the string buffer
+			// @TODO can we just use arrayToList with a delimiter of "#variables.tempQualifier#,#variables.tempQualifier#" and surround that with variables.tempQualifier instead of looping over each column value?
+			// Will this speed up the conversion even more?
 			csvText.append(JavaCast("string", arrayToList(rowData) & newline));
-			// csvText.append(JavaCast("string", outputCSVRow(rowData) & newline));
 		}
 
 		// Waiting until the very end to escape quotes and add qualifier quotes speeds this up by more than double
 		var escapedCSV = escapeCSV(csvText.toString());
-		}
 
 		return escapedCSV;
 	}
@@ -303,7 +293,7 @@ component {
 		rowString = replace(rowString, """", """""", "all");
 
 		// Add actual qualifier double quotes around row items
-		return replace(rowString, "{quot}", """", "all");
+		return replace(rowString, variables.tempQualifier, """", "all");
 	}
 
 	private string function escapeCSV(required string csv) {
@@ -311,6 +301,6 @@ component {
 		csv = replace(csv, """", """""", "all");
 
 		// Add actual qualifier double quotes around row items
-		return replace(csv, "{quot}", """", "all");
+		return replace(csv, variables.tempQualifier, """", "all");
 	}
 }
