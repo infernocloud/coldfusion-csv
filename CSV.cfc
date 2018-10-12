@@ -197,8 +197,7 @@ component {
 				var heading = headerIter.next();
 
 				// Each heading is qualified inside of double quotes
-				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
-				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(heading) & """"));
+				csvText.append(JavaCast("string", variables.tempQualifier & heading & variables.tempQualifier));
 
 				// Comma separated values in the header row
 				if (headerIter.hasNext()) {
@@ -222,8 +221,7 @@ component {
 				var item = rowIter.next();
 
 				// Each row item is qualified inside of double quotes
-				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
-				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(item) & """"));
+				csvText.append(JavaCast("string", variables.tempQualifier & item & variables.tempQualifier));
 
 				// Comma separated values in each data row
 				if (rowIter.hasNext()) {
@@ -235,7 +233,10 @@ component {
 			csvText.append(newline);
 		}
 
-		return csvText.toString();
+		// Waiting until the very end to escape quotes and add qualifier quotes speeds this up by more than double
+		var escapedCSV = escapeCSV(csvText.toString());
+
+		return escapedCSV;
 	}
 
 	// Based on Ben Nadel's updated function but with tons of optimizations https://gist.github.com/bennadel/9753130#file-code-1-cfm
@@ -287,12 +288,6 @@ component {
 		var escapedCSV = escapeCSV(csvText.toString());
 
 		return escapedCSV;
-	}
-
-	// escapeDoubleQuotes will find any existing double quotes (") and will escape them for
-	// @TODO should this check for already escaped quotes and leave them alone?
-	private string function escapeDoubleQuotes(required string input) {
-		return replace(input, """", """""", "all");
 	}
 	
 	private string function escapeCSV(required string csv) {
