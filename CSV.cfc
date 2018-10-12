@@ -294,17 +294,7 @@ component {
 	private string function escapeDoubleQuotes(required string input) {
 		return replace(input, """", """""", "all");
 	}
-
-	private string function outputCSVRow(required array row) {
-		var rowString = row.toList();
-
-		// Escape double quotes
-		rowString = replace(rowString, """", """""", "all");
-
-		// Add actual qualifier double quotes around row items
-		return replace(rowString, variables.tempQualifier, """", "all");
-	}
-
+	
 	private string function escapeCSV(required string csv) {
 		// Escape double quotes
 		csv = replace(csv, """", """""", "all");
