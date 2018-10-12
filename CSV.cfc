@@ -268,6 +268,29 @@ component {
 		return escapedCSV;
 	}
 
+	public void function serveCSV(required string filename, required any data, array header = []) {
+		var csvText = "";
+
+		// Is data a query object?
+		if (isQuery(data)) {
+			csvText = queryToCSV(data, header);
+		}
+
+		// Is data a 2-dimensional array? (An array with each element being an array of row values)
+		if (isArray(data, 2)) {
+			csvText = arrayToCSV(data, header);
+		}
+
+		// Is data already a CSV string?
+		if (isSimpleValue(data)) {
+			csvText = data;
+		}
+
+		// Serve the text as a browser attachment to download
+		cfheader(name = "Content-Disposition", value = "attachment; filename=#filename#.csv");
+		cfcontent(type = "text/csv", variable = ToBinary(ToBase64(csvText)), reset = true);
+	}
+
 	private string function escapeCSV(required string csv) {
 		// Escape double quotes
 		csv = replace(csv, """", """""", "all");
