@@ -4,6 +4,10 @@ component {
 	// Get a newline seperator character
 	variables.newline = createObject("java", "java.lang.System").getProperty("line.separator");
 
+	// We use a temporary qualifier that will be replaced by double quote after escaping double quotes within row items
+	// Doing this after adding the row items to the CSV string buffer dramatically increases processing speed
+	variables.tempQualifier = "{^}";
+
 	// csvToArray() is forked from https://gist.github.com/bennadel/9760097#file-code-1-cfm and converted to full cfscript.
 	// I take a CSV file or CSV data value and convert it to an array of arrays based on the given field delimiter. Line delimiter is assumed to be new line / carriage return related.
 	// file is the optional file containing the CSV data.
@@ -193,6 +197,7 @@ component {
 				var heading = headerIter.next();
 
 				// Each heading is qualified inside of double quotes
+				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
 				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(heading) & """"));
 
 				// Comma separated values in the header row
@@ -217,6 +222,7 @@ component {
 				var item = rowIter.next();
 
 				// Each row item is qualified inside of double quotes
+				// @TODO use escapeCSV after processing rows to avoid overhead of calling escapeDoubleQuotes each loop
 				csvText.append(JavaCast("string", """" & escapeDoubleQuotes(item) & """"));
 
 				// Comma separated values in each data row
@@ -232,9 +238,68 @@ component {
 		return csvText.toString();
 	}
 
+	// Based on Ben Nadel's updated function but with tons of optimizations https://gist.github.com/bennadel/9753130#file-code-1-cfm
+	// header array will take each element and replace the corresponding column name in the header
+	// If there is no corresponding header array element or it is empty string, the query column name will be used in the header
+	// To make blank header labels, use a single space character
+	public string function queryToCSV(required query q, array header = []) {
+		var csvText = createObject("java","java.lang.StringBuffer");
+		var queryRowCount = q.recordcount;
+		var rowData = [];
+		var colIndex = 1;
+		var rowIndex = 1;
+
+		// Build header
+		var queryColumns = q.getColumnNames();
+		var queryColumnsLen = arrayLen(queryColumns);
+
+		// Build array of qualified column names
+		for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
+			var columnLabel = queryColumns[colIndex];
+
+			// If a different label has been passed in for this header, use it instead
+			if (header.isDefined(colIndex) && header[colIndex].len() > 0) {
+				columnLabel = trim(header[colIndex]);
+			}
+
+			rowData[colIndex] = variables.tempQualifier & columnLabel & variables.tempQualifier;
+		}
+
+		// Append row data to the string buffer as a comma separated list (and a newline after the header line)
+		csvText.append(JavaCast("string", arrayToList(rowData) & newline));
+
+		// Append each row of the query data
+		for (rowIndex = 1; rowIndex <= queryRowCount; rowIndex++) {
+			rowData = [];
+
+			for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
+				// Add the field to the row data
+				rowData[colIndex] = variables.tempQualifier & q[queryColumns[colIndex]][rowIndex] & variables.tempQualifier;
+			}
+
+			// Append the row data to the string buffer
+			// @TODO can we just use arrayToList with a delimiter of "#variables.tempQualifier#,#variables.tempQualifier#" and surround that with variables.tempQualifier instead of looping over each column value?
+			// Will this speed up the conversion even more?
+			csvText.append(JavaCast("string", arrayToList(rowData) & newline));
+		}
+
+		// Waiting until the very end to escape quotes and add qualifier quotes speeds this up by more than double
+		var escapedCSV = escapeCSV(csvText.toString());
+
+		return escapedCSV;
+	}
+
 	// escapeDoubleQuotes will find any existing double quotes (") and will escape them for
 	// @TODO should this check for already escaped quotes and leave them alone?
 	private string function escapeDoubleQuotes(required string input) {
 		return replace(input, """", """""", "all");
+	}
+	
+	private string function escapeCSV(required string csv) {
+		// Escape double quotes
+		csv = replace(csv, """", """""", "all");
+
+		// Add actual qualifier double quotes around row items
+		return replace(csv, variables.tempQualifier, """", "all");
 	}
 }
