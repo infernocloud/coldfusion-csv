@@ -239,7 +239,9 @@ component {
 	}
 
 	// Based on Ben Nadel's updated function but with tons of optimizations https://gist.github.com/bennadel/9753130#file-code-1-cfm
-	// @TODO custom header labels instead of query column names
+	// header array will take each element and replace the corresponding column name in the header
+	// If there is no corresponding header array element or it is empty string, the query column name will be used in the header
+	// To make blank header labels, use a single space character
 	public string function queryToCSV(required query q, array header = []) {
 		var csvText = createObject("java","java.lang.StringBuffer");
 		var queryRowCount = q.recordcount;
@@ -253,7 +255,14 @@ component {
 
 		// Build array of qualified column names
 		for (colIndex = 1; colIndex <= queryColumnsLen; colIndex++) {
-			rowData[colIndex] = variables.tempQualifier & queryColumns[colIndex] & variables.tempQualifier;
+			var columnLabel = queryColumns[colIndex];
+
+			// If a different label has been passed in for this header, use it instead
+			if (header.isDefined(colIndex) && header[colIndex].len() > 0) {
+				columnLabel = trim(header[colIndex]);
+			}
+
+			rowData[colIndex] = variables.tempQualifier & columnLabel & variables.tempQualifier;
 		}
 
 		// Append row data to the string buffer as a comma separated list (and a newline after the header line)
