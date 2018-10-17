@@ -276,8 +276,8 @@ component {
 			csvText = queryToCSV(data, header);
 		}
 
-		// Is data a 2-dimensional array? (An array with each element being an array of row values)
-		if (isArray(data, 2)) {
+		// Is data an array? (An array with each element being an array of row values)
+		if (isArray(data)) {
 			csvText = arrayToCSV(data, header);
 		}
 
