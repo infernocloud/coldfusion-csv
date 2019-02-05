@@ -81,8 +81,8 @@ component {
 			)');
 		}
 
-		//	Create a compiled Java regular expression pattern object
-		//	for the experssion that will be parsing the CSV.
+		// Create a compiled Java regular expression pattern object
+		// for the expression that will be parsing the CSV.
 		var pattern = createObject(
 			"java",
 			"java.util.regex.Pattern"
